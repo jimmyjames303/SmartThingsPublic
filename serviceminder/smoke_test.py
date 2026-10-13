@@ -6,7 +6,7 @@ Usage:
     python3 serviceminder/smoke_test.py
 
 Optional:
-    SERVICEMINDER_BASE_URL  (default https://www.serviceminder.com)
+    SERVICEMINDER_BASE_URL  (default https://serviceminder.com)
 """
 import json
 import os
@@ -14,7 +14,7 @@ import sys
 import urllib.error
 import urllib.request
 
-BASE_URL = os.environ.get("SERVICEMINDER_BASE_URL", "https://www.serviceminder.com").rstrip("/")
+BASE_URL = os.environ.get("SERVICEMINDER_BASE_URL", "https://serviceminder.com").rstrip("/")
 API_KEY = os.environ.get("SERVICEMINDER_API_KEY")
 
 

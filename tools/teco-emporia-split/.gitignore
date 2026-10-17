@@ -1,0 +1,4 @@
+config.json
+.emporia_tokens.json
+*.pdf
+*.csv

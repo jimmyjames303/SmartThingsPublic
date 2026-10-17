@@ -1,0 +1,12 @@
+{
+  "timezone": "America/New_York",
+  "units": {
+    "Unit A": ["Unit A AC", "Unit A Water Heater", "Unit A Kitchen", "Unit A Dryer"],
+    "Unit B": ["Unit B AC", "Unit B Water Heater", "Unit B Kitchen", "Unit B Dryer"]
+  },
+  "shared": ["Exterior Lights", "Well Pump"],
+  "ignore": [],
+  "shared_split": "proportional",
+  "fixed_charge_split": "equal",
+  "default_fixed_charge": 0.0
+}

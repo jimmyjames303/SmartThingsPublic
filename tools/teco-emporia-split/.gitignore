@@ -2,3 +2,4 @@ config.json
 .emporia_tokens.json
 *.pdf
 *.csv
+__pycache__/

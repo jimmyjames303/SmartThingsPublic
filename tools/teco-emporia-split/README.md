@@ -34,6 +34,38 @@ python split_bill.py --emporia-csv export.csv --start ... --end ... --kwh ... --
 Use `--total` for the current period's charges only. Leave out any past-due balance
 carried over from an earlier bill.
 
+## Web app on Railway
+
+`app.py` is a small password-protected web page. You upload the TECO PDF, it pulls
+the Emporia data for that service period automatically, and it shows the split with
+a CSV download. Run it as its own Railway service so it stays separate from your
+other apps:
+
+1. In Railway, create a **new project** (or a new service in an existing project) from
+   this GitHub repo.
+2. Service **Settings**:
+   - **Root Directory**: `/tools/teco-emporia-split`
+   - **Config file path**: `/tools/teco-emporia-split/railway.json`. Railway's config
+     file doesn't follow the root directory, so give the full path. The `Procfile`
+     has the same start command as a fallback.
+3. **Variables**:
+
+   | Variable | Value |
+   |---|---|
+   | `APP_PASSWORD` | Password for the page (the browser asks for it; user name `admin`, or set `APP_USER`) |
+   | `EMPORIA_USER` / `EMPORIA_PASSWORD` | Your Emporia login |
+   | `SPLIT_CONFIG` | The contents of your `config.json`, pasted as one JSON value |
+
+   Keep the circuit mapping in `SPLIT_CONFIG`, not in a committed `config.json`, so it
+   stays out of the repo.
+4. **Networking → Generate Domain**, then open the URL.
+
+The page won't load until `APP_PASSWORD` is set. Pulling a month of hourly Emporia
+data takes a little while. Results are cached in memory for an hour, so
+recalculating the same period with corrected bill numbers is quick.
+
+Run it locally with `APP_PASSWORD=x python app.py` (uses `config.json`).
+
 ## How the money is divided
 
 1. **Direct kWh**: the sum of each unit's own circuits over the service period.

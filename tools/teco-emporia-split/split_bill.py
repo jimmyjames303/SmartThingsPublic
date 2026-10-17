@@ -27,6 +27,10 @@ from collections import defaultdict
 from zoneinfo import ZoneInfo
 
 
+def _stderr(msg):
+    print(f"warning: {msg}", file=sys.stderr)
+
+
 # ---------------------------------------------------------------- TECO bill
 
 def parse_teco_pdf(path):
@@ -72,20 +76,21 @@ def _parse_date(s):
 
 # ---------------------------------------------------------------- Emporia usage
 
-def emporia_usage_api(cfg, start, end, tz):
+def emporia_usage_api(cfg, start, end, tz, warn=_stderr):
     """Return {circuit name: kWh} for [start, end] (inclusive dates, local time)."""
     from pyemvue import PyEmVue
     from pyemvue.enums import Scale, Unit
 
     vue = PyEmVue()
-    token_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".emporia_tokens.json")
+    token_file = os.environ.get("EMPORIA_TOKEN_FILE") or \
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), ".emporia_tokens.json")
     if os.path.exists(token_file):
         vue.login(token_storage_file=token_file)
     else:
         user = os.environ.get("EMPORIA_USER") or cfg.get("emporia", {}).get("username")
         password = os.environ.get("EMPORIA_PASSWORD") or cfg.get("emporia", {}).get("password")
         if not user or not password:
-            sys.exit("Set EMPORIA_USER and EMPORIA_PASSWORD (or emporia.username/password in config).")
+            raise RuntimeError("Set EMPORIA_USER and EMPORIA_PASSWORD (or emporia.username/password in config).")
         vue.login(username=user, password=password, token_storage_file=token_file)
 
     begin = dt.datetime.combine(start, dt.time.min, tz).astimezone(dt.timezone.utc)
@@ -110,7 +115,7 @@ def emporia_usage_api(cfg, start, end, tz):
                         usage[name] += v
                 cursor = chunk_end
     for name, hours in missing.items():
-        print(f"warning: {name}: {hours} hour(s) of missing data in the period", file=sys.stderr)
+        warn(f"{name}: {hours} hour(s) of missing data in the period")
     return dict(usage)
 
 
@@ -151,7 +156,7 @@ def _parse_csv_time(s):
 
 # ---------------------------------------------------------------- allocation
 
-def allocate(cfg, usage, bill):
+def allocate(cfg, usage, bill, warn=_stderr):
     units = cfg["units"]
     unit_names = list(units)
     shared_split = cfg.get("shared_split", "proportional")
@@ -162,27 +167,27 @@ def allocate(cfg, usage, bill):
     for u, circuits in units.items():
         for c in circuits:
             if c not in usage:
-                print(f"warning: circuit {c!r} (unit {u}) not found in Emporia data", file=sys.stderr)
+                warn(f"circuit {c!r} (unit {u}) not found in Emporia data")
             unit_kwh[u] += usage.get(c, 0.0)
             assigned.add(c)
 
     shared_kwh = 0.0
     for c in cfg.get("shared", []):
         if c not in usage:
-            print(f"warning: shared circuit {c!r} not found in Emporia data", file=sys.stderr)
+            warn(f"shared circuit {c!r} not found in Emporia data")
         shared_kwh += usage.get(c, 0.0)
         assigned.add(c)
 
     ignored = set(cfg.get("ignore", [])) | {"Mains"}
     unmapped = sorted(c for c in usage if c not in assigned and c not in ignored)
     for c in unmapped:
-        print(f"warning: circuit {c!r} is not mapped to a unit; counted as unmonitored", file=sys.stderr)
+        warn(f"circuit {c!r} is not mapped to a unit; counted as unmonitored")
 
     monitored = sum(unit_kwh.values()) + shared_kwh
     unmonitored = bill["kwh"] - monitored
     if unmonitored < 0:
-        print(f"warning: circuits total {monitored:.1f} kWh, more than the meter's {bill['kwh']:.1f} kWh; "
-              "scaling everything down to match the meter", file=sys.stderr)
+        warn(f"circuits total {monitored:.1f} kWh, more than the meter's {bill['kwh']:.1f} kWh; "
+             "scaling everything down to match the meter")
     remainder = shared_kwh + unmonitored  # may be negative: then it trims both units
 
     direct_total = sum(unit_kwh.values())
@@ -261,7 +266,10 @@ def main():
     if args.emporia_csv:
         usage = emporia_usage_csv(args.emporia_csv, bill["start"], bill["end"])
     else:
-        usage = emporia_usage_api(cfg, bill["start"], bill["end"], tz)
+        try:
+            usage = emporia_usage_api(cfg, bill["start"], bill["end"], tz)
+        except RuntimeError as e:
+            sys.exit(str(e))
 
     if args.list_circuits:
         for name, kwh in sorted(usage.items()):

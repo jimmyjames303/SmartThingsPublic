@@ -1,0 +1,7 @@
+# Never commit downloaded data, logs or secrets
+cc_archive/
+import_log.json
+*.part
+*.tmp
+__pycache__/
+.env

@@ -46,6 +46,16 @@ def iso_date(value):
     return str(value)
 
 
+def unix_time(value):
+    """The photos endpoint takes captured_at as integer Unix seconds, not an ISO string."""
+    if value in (None, ""):
+        return None
+    if isinstance(value, (int, float)) or str(value).isdigit():
+        return int(value)
+    dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    return int((dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)).timestamp())
+
+
 def project_payload(project):
     addr = project.get("address") or {}
     street = ", ".join(s for s in (addr.get("street_address_1"), addr.get("street_address_2")) if s)
@@ -126,7 +136,7 @@ def upload_photo(api, new_project_id, photo, path):
                         {"photo": {"upload_id": upload["upload_id"], "description": description, **extra}})
 
     description = photo_description(photo)
-    extra = {k: v for k, v in (("captured_at", iso_date(photo.get("captured_at"))),
+    extra = {k: v for k, v in (("captured_at", unix_time(photo.get("captured_at"))),
                                ("tags", [t for t in photo.get("tags") or [] if t])) if v}
     try:
         created = create(extra)
